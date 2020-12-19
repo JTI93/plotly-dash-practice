@@ -8,20 +8,19 @@ from uk_covid19 import Cov19API
 
 
 # Call COVID API and format
-api = Cov19API(
+region_api = Cov19API(
     filters=[
-        'areaType=region'
+        'areaType=nation'
     ],
     structure=dict(
         date='date',
         areaName='areaName',
-        newCasesBySpecimenDate='newCasesBySpecimenDate',
         newCasesByPublishDate='newCasesByPublishDate',
-        newTestsByPublishDate='newTestsByPublishDate'#,
-        #newDeathsBySpecimenDate='newDeathsBySpecimenDate'
+        newCasesBySpecimenDate='newCasesBySpecimenDate',
+        newDeaths28DaysByPublishDate='newDeaths28DaysByPublishDate'
     )
 )
-data = api.get_dataframe()
+data = region_api.get_dataframe()
 data['date'] = pd.to_datetime(data['date'])
 
 data.rename(
@@ -29,10 +28,16 @@ data.rename(
         areaName='region',
         newCasesBySpecimenDate='cases_by_specimen_date',
         newCasesByPublishDate='cases_by_publish_date',
-        newTestsByPublishDate='tests_by_publish_date'
+        newDeaths28DaysByPublishDate='deaths_28d_by_publish_date'
     ),
     inplace=True
 )
+
+# 2019 population estimates from
+# https://www.ons.gov.uk/visualisations/dvc845/poppyramids/pyramids/datadownload.xlsx
+# Load and pre-process
+pops = pd.read_csv('data/ons_population_estimates_mid_2019.csv')
+pops.loc[pops['region'] == 'East', ['region']] = 'East of England'
 
 # Generate dropdown options
 regions = []
@@ -44,11 +49,7 @@ for region in data['region'].unique():
         )
     )
 
-# 2019 population estimates from
-# https://www.ons.gov.uk/visualisations/dvc845/poppyramids/pyramids/datadownload.xlsx
-# Load and pre-process
-pops = pd.read_csv('data/ons_population_estimates_mid_2019.csv')
-pops.loc[pops['region'] == 'East', ['region']] = 'East of England'
+
 
 app = dash.Dash()
 
@@ -120,12 +121,23 @@ def update_figure(region):
     )
     return fig
 
+def has_data(df):
+    uniques = df.unique()
+    if len(uniques) == 1 and uniques[0] == None:
+        return False
+    else:
+        return True
+
 if __name__ == '__main__':
+    
+    for i in data.columns:
+        print(i + ': ' + str(has_data(data[i])))
+
     #app.run_server()
     #print(data.groupby(['date']).sum())
     #for col in data.columns:
     #    print(type(data[col][0]))
     #print(data)
-    print(data.merge(pops, how='inner', on='region'))
-    print(data['region'].unique())
-    print(pops['region'].unique())
+    # print(data.merge(pops, how='inner', on='region'))
+    # print(data['region'].unique())
+    # print(pops['region'].unique())

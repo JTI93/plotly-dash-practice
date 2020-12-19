@@ -10,7 +10,7 @@ from uk_covid19 import Cov19API
 # Call COVID API and format
 region_api = Cov19API(
     filters=[
-        'areaType=nation'
+        'areaType=region'
     ],
     structure=dict(
         date='date',
@@ -20,10 +20,10 @@ region_api = Cov19API(
         newDeaths28DaysByPublishDate='newDeaths28DaysByPublishDate'
     )
 )
-data = region_api.get_dataframe()
-data['date'] = pd.to_datetime(data['date'])
+region_data = region_api.get_dataframe()
+region_data['date'] = pd.to_datetime(region_data['date'])
 
-data.rename(
+region_data.rename(
     columns=dict(
         areaName='region',
         newCasesBySpecimenDate='cases_by_specimen_date',
@@ -39,9 +39,23 @@ data.rename(
 pops = pd.read_csv('data/ons_population_estimates_mid_2019.csv')
 pops.loc[pops['region'] == 'East', ['region']] = 'East of England'
 
+
+# Calculate metrics for region graphs
+region_data = region_data.merge(pops, on='region')
+region_data['cases_per_100k'] = (
+    region_data['cases_by_specimen_date'] /
+    region_data['pop_est'] * 100000
+)
+region_data['deaths_28_per_case_by_publish_date'] = (
+    region_data['deaths_28d_by_publish_date'] /
+    region_data['cases_by_publish_date']
+)
+# region_data['date']
+
+
 # Generate dropdown options
 regions = []
-for region in data['region'].unique():
+for region in region_data['region'].unique():
     regions.append(
             dict(
             label=region,
@@ -98,7 +112,7 @@ app.layout = html.Div(
     [Input('region-dropdown', 'value')]
 )
 def update_figure(region):
-    filtered_df = data[data['region'] == region]
+    filtered_df = region_data[region_data['region'] == region]
     fig = dict(
         data=[
             go.Scatter(
@@ -130,8 +144,7 @@ def has_data(df):
 
 if __name__ == '__main__':
     
-    for i in data.columns:
-        print(i + ': ' + str(has_data(data[i])))
+    print(region_data)
 
     #app.run_server()
     #print(data.groupby(['date']).sum())
